@@ -1,56 +1,30 @@
 import com.microsoft.sqlserver.jdbc.SQLServerDriver;
+import service.CustomerService;
+import service.OrderService;
+import service.ProductService;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.sql.*;
-import java.util.LinkedList;
-import java.util.Properties;
-import java.util.concurrent.atomic.AtomicReference;
+import java.sql.DriverManager;
+import java.sql.SQLException;
 
 public class Application {
+    private static final String productsQuery = "SELECT TOP 10 StockItemID, StockItemName FROM WideWorldImporters.Warehouse.StockItems ORDER BY StockItemID";
+    private static final String customersQuery = "SELECT TOP 10 CustomerID, CustomerName, PhoneNumber FROM Sales.Customers";
+    private static final String ordersQuery = "SELECT TOP 10 OrderID, CustomerID, OrderDate FROM Sales.Orders ORDER BY OrderDate";
 
-    public static void main(String[] args) {
-        try {
-            String url = "jdbc:sqlserver://localhost:1433;database=WideWorldImporters;encrypt=true;trustServerCertificate=true;";
-            String user = "sa";
-            String password = "mssql1Ipw";
+    public static void main(String[] args) throws SQLException {
+        DriverManager.registerDriver(new SQLServerDriver());
 
-            DriverManager.registerDriver(new SQLServerDriver());
-            Connection connection = DriverManager.getConnection(url, user, password);
+        ProductService productService = new ProductService();
+        productService.readAll(productsQuery).forEach(x -> System.out.printf("%s - %s%n", x.getStockItemId(), x.getStockItemName()));
 
-            Statement statement = connection.createStatement();
-            ResultSet resultSet = statement.executeQuery("SELECT TOP 10 StockItemID, StockItemName FROM WideWorldImporters.Warehouse.StockItems ORDER BY StockItemID");
+        System.out.println();
 
-            var products = new AtomicReference<>(new LinkedList<Product>());
-            while (resultSet.next()) {
-                products.get().add(buildProduct(resultSet));
-            }
+        CustomerService customerService = new CustomerService();
+        customerService.readAll(customersQuery).forEach(x -> System.out.printf("%s - %s - %s%n", x.getCustomerID(), x.getCustomerName(), x.getPhoneNumber()));
 
+        System.out.println();
 
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private static Properties loadProperties() {
-        var properties = new Properties();
-        try (InputStream input = Application.class.getClassLoader().getResourceAsStream("config.properties")) {
-            if (input == null) {
-                System.out.println("Unable to find config.properties");
-                return properties;
-            }
-
-            properties.load(input);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return properties;
-    }
-
-    private static Product buildProduct(ResultSet resultSet) throws SQLException {
-        var product = new Product();
-        product.setStockItemId(resultSet.getInt(1));
-        product.setStockItemName(resultSet.getString(2));
-        return product;
+        OrderService orderService = new OrderService();
+        orderService.readAll(ordersQuery).forEach(x -> System.out.printf("%s - %s - %s%n", x.getOrderId(), x.getCustomerId(), x.getOrderDate()));
     }
 }
